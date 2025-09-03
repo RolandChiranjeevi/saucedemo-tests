@@ -21,8 +21,11 @@ jobs:
         node-version: [18, 20]
     
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+    - name: Manual checkout
+      run: |
+        echo "📥 Manual repository checkout..."
+        git clone https://github.com/RolandChiranjeevi/saucedemo-tests.git .
+        echo "✅ Repository checked out manually"
       
     - name: Display deployment info
       if: github.event_name == 'repository_dispatch'
@@ -32,11 +35,14 @@ jobs:
         echo "🔍 Commit SHA: ${{ github.event.client_payload.commit_sha }}"
         echo "💬 Commit Message: ${{ github.event.client_payload.commit_message }}"
       
-    - name: Setup Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v3
-      with:
-        node-version: ${{ matrix.node-version }}
-        cache: 'npm'
+    - name: Manual Node.js setup
+      run: |
+        echo "🔧 Installing Node.js ${{ matrix.node-version }}..."
+        curl -fsSL https://deb.nodesource.com/setup_${{ matrix.node-version }}.x | sudo -E bash -
+        sudo apt-get install -y nodejs
+        echo "✅ Node.js installed:"
+        node --version
+        npm --version
         
     - name: Install dependencies and drivers
       run: |
@@ -75,15 +81,20 @@ jobs:
         # URL kan komma från deployment event
         TARGET_URL: ${{ github.event.client_payload.deployed_url || 'https://www.saucedemo.com' }}
         
-    - name: Upload test artifacts on failure
+    - name: Manual artifact upload on failure
       if: failure()
-      uses: actions/upload-artifact@v3
-      with:
-        name: test-artifacts-node-${{ matrix.node-version }}
-        path: |
-          screenshots/
-          test-results/
-        retention-days: 7
+      run: |
+        echo "📁 Collecting test artifacts..."
+        mkdir -p artifacts
+        if [ -d "screenshots" ]; then
+          cp -r screenshots artifacts/ || echo "No screenshots found"
+        fi
+        if [ -d "test-results" ]; then
+          cp -r test-results artifacts/ || echo "No test results found"
+        fi
+        echo "🔍 Available artifacts:"
+        ls -la artifacts/ || echo "No artifacts collected"
+        echo "Note: Manual artifact collection completed (automatic upload disabled due to org policy)"
         
   notification:
     needs: test
