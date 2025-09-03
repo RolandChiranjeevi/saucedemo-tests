@@ -1,0 +1,20 @@
+{
+  "name": "selenium-test",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "commonjs",
+  "scripts": {
+    "test": "node run-tests.js",
+    "test:local": "node run-tests.js",
+    "test:headless": "HEADLESS=true node run-tests.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "chalk": "^4.1.2",
+    "chromedriver": "^139.0.2",
+    "selenium-webdriver": "^4.35.0"
+  }
+}

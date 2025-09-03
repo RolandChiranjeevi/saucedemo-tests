@@ -1,0 +1,68 @@
+name: Selenium Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Kör tester varje dag kl 08:00 UTC för att övervaka saucedemo.com
+    - cron: '0 8 * * *'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [18, 20]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Setup Chrome
+      uses: browser-actions/setup-chrome@latest
+      with:
+        chrome-version: stable
+        
+    - name: Run Selenium tests
+      run: npm test
+      env:
+        # Headless mode för CI
+        HEADLESS: true
+        
+    - name: Upload test artifacts on failure
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-artifacts-node-${{ matrix.node-version }}
+        path: |
+          screenshots/
+          test-results/
+        retention-days: 7
+        
+  notification:
+    needs: test
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+    - name: Test Results Summary
+      run: |
+        if [ "${{ needs.test.result }}" == "success" ]; then
+          echo "✅ Alla Selenium-tester lyckades!"
+          echo "Saucedemo.com fungerar som förväntat."
+        else
+          echo "❌ Selenium-tester misslyckades!"
+          echo "Det kan finnas problem med saucedemo.com eller våra tester."
+        fi
