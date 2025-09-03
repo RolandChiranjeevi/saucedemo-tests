@@ -8,6 +8,9 @@ on:
   schedule:
     # Kör tester varje dag kl 08:00 UTC för att övervaka saucedemo.com
     - cron: '0 8 * * *'
+  repository_dispatch:
+    # Triggas när saucedemo-siten har deployats
+    types: [deployment-completed]
 
 jobs:
   test:
@@ -20,6 +23,14 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      
+    - name: Display deployment info
+      if: github.event_name == 'repository_dispatch'
+      run: |
+        echo "🚀 Testerna triggas av deployment!"
+        echo "📍 Deployed URL: ${{ github.event.client_payload.deployed_url }}"
+        echo "🔍 Commit SHA: ${{ github.event.client_payload.commit_sha }}"
+        echo "💬 Commit Message: ${{ github.event.client_payload.commit_message }}"
       
     - name: Setup Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v4
@@ -35,11 +46,24 @@ jobs:
       with:
         chrome-version: stable
         
+    - name: Debug Chrome installation
+      run: |
+        echo "Chrome version:"
+        google-chrome --version || chromium-browser --version || echo "Chrome not found"
+        echo "Chromedriver version:"
+        chromedriver --version || echo "Chromedriver not found"
+        echo "Display info:"
+        echo "DISPLAY=$DISPLAY"
+        echo "Available browsers:"
+        which google-chrome chromium-browser || echo "No browsers found"
+        
     - name: Run Selenium tests
       run: npm test
       env:
         # Headless mode för CI
         HEADLESS: true
+        # URL kan komma från deployment event
+        TARGET_URL: ${{ github.event.client_payload.deployed_url || 'https://www.saucedemo.com' }}
         
     - name: Upload test artifacts on failure
       if: failure()
