@@ -38,32 +38,34 @@ jobs:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
         
-    - name: Install dependencies
-      run: npm ci
-      
-    - name: Setup Firefox
-      uses: browser-actions/setup-firefox@latest
-      with:
-        firefox-version: latest
-        
-    - name: Setup Chrome (fallback)
-      uses: browser-actions/setup-chrome@latest
-      with:
-        chrome-version: stable
-        
-    - name: Debug browser installation
+    - name: Install dependencies and drivers
       run: |
-        echo "=== Firefox ==="
+        npm ci
+        echo "📦 Dependencies installed"
+        
+    - name: Install system browsers for CI
+      run: |
+        # Installera Chrome
+        wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+        echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/chrome.list
+        sudo apt-get update
+        sudo apt-get install -y google-chrome-stable
+        
+        # Firefox finns redan i Ubuntu
+        echo "✅ Browsers installed"
+        
+    - name: Debug browser and driver installation
+      run: |
+        echo "=== System Browsers ==="
+        google-chrome --version || echo "Chrome not found"
         firefox --version || echo "Firefox not found"
-        geckodriver --version || echo "Geckodriver not found"
-        echo "=== Chrome ==="
-        google-chrome --version || chromium-browser --version || echo "Chrome not found"
-        chromedriver --version || echo "Chromedriver not found"
-        echo "=== System ==="
-        echo "Display: $DISPLAY"
-        echo "User: $(whoami)"
-        echo "Available browsers:"
-        which firefox google-chrome chromium-browser || echo "No browsers found"
+        echo "=== Node.js Drivers ==="
+        ls -la node_modules/chromedriver/bin/ || echo "ChromeDriver not found"
+        ls -la node_modules/geckodriver/bin/ || echo "GeckoDriver not found"
+        echo "=== PATH ==="
+        echo $PATH
+        echo "=== Display ==="
+        echo "DISPLAY: $DISPLAY"
         
     - name: Run Selenium tests
       run: npm test

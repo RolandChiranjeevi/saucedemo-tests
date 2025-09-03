@@ -3,7 +3,20 @@ const path = require('path');
 const { Builder } = require('selenium-webdriver');
 const chrome = require('selenium-webdriver/chrome');
 const firefox = require('selenium-webdriver/firefox');
-const { blue, green, red, yellow } = require('chalk'); // <--- ändrat
+const { blue, green, red, yellow } = require('chalk');
+
+// Sätt driver-sökvägar för CI-miljö
+if (process.env.HEADLESS === 'true') {
+  // I CI-miljön finns drivers i node_modules
+  const chromeDriverPath = path.join(__dirname, 'node_modules', 'chromedriver', 'bin', 'chromedriver');
+  const geckoDriverPath = path.join(__dirname, 'node_modules', 'geckodriver', 'bin', 'geckodriver');
+  
+  process.env.PATH = `${path.dirname(chromeDriverPath)}:${path.dirname(geckoDriverPath)}:${process.env.PATH}`;
+  
+  console.log(blue("🔧 CI Driver paths configured:"));
+  console.log(`   ChromeDriver: ${chromeDriverPath}`);
+  console.log(`   GeckoDriver: ${geckoDriverPath}`);
+}
 
 (async function runAllTests() {
   console.log(blue("Startar Chrome en gång för alla tester..."));
@@ -59,15 +72,33 @@ const { blue, green, red, yellow } = require('chalk'); // <--- ändrat
     }
     
   } catch (startupError) {
-    console.error(red("❌ STARTUP FAILURE: Kunde inte starta Chrome WebDriver"));
+    console.error(red("❌ STARTUP FAILURE: Kunde inte starta WebDriver"));
     console.error(red("Error details:", startupError.message));
     console.error(red("Stack trace:", startupError.stack));
     
-    // Försök med mer debugging info
-    console.log(yellow("Debugging info:"));
+    // Utförlig debugging info
+    console.log(yellow("🔍 Debugging info:"));
     console.log("- Node version:", process.version);
     console.log("- Platform:", process.platform);
     console.log("- HEADLESS env:", process.env.HEADLESS);
+    console.log("- PATH:", process.env.PATH);
+    
+    // Kontrollera driver-filer
+    console.log(yellow("🔧 Driver file check:"));
+    const chromeDriverPath = path.join(__dirname, 'node_modules', 'chromedriver', 'bin', 'chromedriver');
+    const geckoDriverPath = path.join(__dirname, 'node_modules', 'geckodriver', 'bin', 'geckodriver');
+    
+    console.log(`- ChromeDriver exists: ${fs.existsSync(chromeDriverPath)}`);
+    console.log(`- GeckoDriver exists: ${fs.existsSync(geckoDriverPath)}`);
+    
+    if (fs.existsSync(chromeDriverPath)) {
+      try {
+        const stats = fs.statSync(chromeDriverPath);
+        console.log(`- ChromeDriver size: ${stats.size} bytes, executable: ${!!(stats.mode & parseInt('111', 8))}`);
+      } catch (e) {
+        console.log(`- ChromeDriver stat error: ${e.message}`);
+      }
+    }
     
     process.exit(1);
   }
