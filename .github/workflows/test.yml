@@ -41,21 +41,29 @@ jobs:
     - name: Install dependencies
       run: npm ci
       
-    - name: Setup Chrome
+    - name: Setup Firefox
+      uses: browser-actions/setup-firefox@latest
+      with:
+        firefox-version: latest
+        
+    - name: Setup Chrome (fallback)
       uses: browser-actions/setup-chrome@latest
       with:
         chrome-version: stable
         
-    - name: Debug Chrome installation
+    - name: Debug browser installation
       run: |
-        echo "Chrome version:"
+        echo "=== Firefox ==="
+        firefox --version || echo "Firefox not found"
+        geckodriver --version || echo "Geckodriver not found"
+        echo "=== Chrome ==="
         google-chrome --version || chromium-browser --version || echo "Chrome not found"
-        echo "Chromedriver version:"
         chromedriver --version || echo "Chromedriver not found"
-        echo "Display info:"
-        echo "DISPLAY=$DISPLAY"
+        echo "=== System ==="
+        echo "Display: $DISPLAY"
+        echo "User: $(whoami)"
         echo "Available browsers:"
-        which google-chrome chromium-browser || echo "No browsers found"
+        which firefox google-chrome chromium-browser || echo "No browsers found"
         
     - name: Run Selenium tests
       run: npm test

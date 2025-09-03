@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { Builder } = require('selenium-webdriver');
 const chrome = require('selenium-webdriver/chrome');
+const firefox = require('selenium-webdriver/firefox');
 const { blue, green, red, yellow } = require('chalk'); // <--- ändrat
 
 (async function runAllTests() {
@@ -10,28 +11,52 @@ const { blue, green, red, yellow } = require('chalk'); // <--- ändrat
   let driver;
   
   try {
-    // Setup Chrome options för CI/CD
-    const chromeOptions = new chrome.Options();
+    // Försök Firefox först i CI-miljö
     if (process.env.HEADLESS === 'true') {
-      chromeOptions.addArguments('--headless=new');
-      chromeOptions.addArguments('--no-sandbox');
-      chromeOptions.addArguments('--disable-dev-shm-usage');
-      chromeOptions.addArguments('--disable-gpu');
-      chromeOptions.addArguments('--disable-extensions');
-      chromeOptions.addArguments('--disable-background-timer-throttling');
-      chromeOptions.addArguments('--disable-backgrounding-occluded-windows');
-      chromeOptions.addArguments('--disable-renderer-backgrounding');
-      chromeOptions.addArguments('--window-size=1920,1080');
-      console.log(yellow("Kör i headless-läge för CI/CD"));
+      console.log(blue("Försöker starta Firefox WebDriver för CI..."));
+      const firefoxOptions = new firefox.Options();
+      firefoxOptions.addArguments('--headless');
+      firefoxOptions.addArguments('--no-sandbox');
+      firefoxOptions.addArguments('--disable-dev-shm-usage');
+      firefoxOptions.addArguments('--width=1920');
+      firefoxOptions.addArguments('--height=1080');
+      
+      try {
+        driver = await new Builder()
+          .forBrowser('firefox')
+          .setFirefoxOptions(firefoxOptions)
+          .build();
+        
+        console.log(green("✅ Firefox WebDriver startad framgångsrikt"));
+      } catch (firefoxError) {
+        console.log(yellow("⚠️  Firefox misslyckades, försöker Chrome..."));
+        console.log("Firefox error:", firefoxError.message);
+        
+        // Fallback till Chrome
+        const chromeOptions = new chrome.Options();
+        chromeOptions.addArguments('--headless=new');
+        chromeOptions.addArguments('--no-sandbox');
+        chromeOptions.addArguments('--disable-dev-shm-usage');
+        chromeOptions.addArguments('--disable-gpu');
+        chromeOptions.addArguments('--disable-extensions');
+        chromeOptions.addArguments('--window-size=1920,1080');
+        
+        driver = await new Builder()
+          .forBrowser('chrome')
+          .setChromeOptions(chromeOptions)
+          .build();
+        
+        console.log(green("✅ Chrome WebDriver startad som fallback"));
+      }
+    } else {
+      // Lokalt - använd Chrome som vanligt
+      console.log(blue("Försöker starta Chrome WebDriver lokalt..."));
+      driver = await new Builder()
+        .forBrowser('chrome')
+        .build();
+      
+      console.log(green("✅ Chrome WebDriver startad framgångsrikt"));
     }
-    
-    console.log(blue("Försöker starta Chrome WebDriver..."));
-    driver = await new Builder()
-      .forBrowser('chrome')
-      .setChromeOptions(chromeOptions)
-      .build();
-    
-    console.log(green("✅ Chrome WebDriver startad framgångsrikt"));
     
   } catch (startupError) {
     console.error(red("❌ STARTUP FAILURE: Kunde inte starta Chrome WebDriver"));
