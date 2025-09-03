@@ -1,121 +1,82 @@
-name: Selenium Tests
+name: Selenium Tests - DEBUG MODE
 
 on:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
-  schedule:
-    # Kör tester varje dag kl 08:00 UTC för att övervaka saucedemo.com
-    - cron: '0 8 * * *'
   repository_dispatch:
-    # Triggas när saucedemo-siten har deployats
     types: [deployment-completed]
 
 jobs:
-  test:
+  debug_test:
     runs-on: ubuntu-latest
     
-    strategy:
-      matrix:
-        node-version: [18]
-    
     steps:
-    - name: Manual checkout and setup
+    - name: Environment Check
       run: |
-        echo "📥 Manual repository checkout..."
-        pwd
+        echo "🔍 === INITIAL ENVIRONMENT DEBUG ==="
+        echo "PWD: $(pwd)"
+        echo "USER: $(whoami)"
+        echo "HOME: $HOME"
+        echo "PATH: $PATH"
+        echo "Working directory contents:"
         ls -la
-        rm -rf * .git* || true
-        git clone https://github.com/RolandChiranjeevi/saucedemo-tests.git temp-repo
-        mv temp-repo/* . || true
-        mv temp-repo/.* . || true
-        rm -rf temp-repo
-        echo "✅ Repository checked out manually"
-        echo "📁 Current directory contents:"
+        echo "Git version:"
+        git --version
+        echo "=== END INITIAL DEBUG ==="
+        
+    - name: Simple Git Clone Test
+      run: |
+        echo "📥 Testing simple git clone..."
+        git clone https://github.com/RolandChiranjeevi/saucedemo-tests.git /tmp/test-repo
+        echo "✅ Clone succeeded to /tmp/test-repo"
+        ls -la /tmp/test-repo
+        
+    - name: Copy Files to Workspace
+      run: |
+        echo "📁 Copying files to workspace..."
+        cp -r /tmp/test-repo/* . || echo "No files to copy"
+        cp -r /tmp/test-repo/.* . 2>/dev/null || echo "No hidden files to copy"
+        echo "✅ Files copied, current directory:"
         ls -la
-      
-    - name: Display deployment info
-      if: github.event_name == 'repository_dispatch'
-      run: |
-        echo "🚀 Testerna triggas av deployment!"
-        echo "📍 Deployed URL: ${{ github.event.client_payload.deployed_url }}"
-        echo "🔍 Commit SHA: ${{ github.event.client_payload.commit_sha }}"
-        echo "💬 Commit Message: ${{ github.event.client_payload.commit_message }}"
-      
-    - name: Manual Node.js setup
-      run: |
-        echo "🔧 Installing Node.js ${{ matrix.node-version }}..."
-        curl -fsSL https://deb.nodesource.com/setup_${{ matrix.node-version }}.x | sudo -E bash -
-        sudo apt-get install -y nodejs
-        echo "✅ Node.js installed:"
-        node --version
-        npm --version
         
-    - name: Install dependencies and drivers
+    - name: Check Package.json
       run: |
-        npm ci
-        echo "📦 Dependencies installed"
-        
-    - name: Install system browsers for CI
-      run: |
-        # Installera Chrome
-        wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
-        echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/chrome.list
-        sudo apt-get update
-        sudo apt-get install -y google-chrome-stable
-        
-        # Firefox finns redan i Ubuntu
-        echo "✅ Browsers installed"
-        
-    - name: Debug browser and driver installation
-      run: |
-        echo "=== System Browsers ==="
-        google-chrome --version || echo "Chrome not found"
-        firefox --version || echo "Firefox not found"
-        echo "=== Node.js Drivers ==="
-        ls -la node_modules/chromedriver/bin/ || echo "ChromeDriver not found"
-        ls -la node_modules/geckodriver/bin/ || echo "GeckoDriver not found"
-        echo "=== PATH ==="
-        echo $PATH
-        echo "=== Display ==="
-        echo "DISPLAY: $DISPLAY"
-        
-    - name: Run Selenium tests
-      run: npm test
-      env:
-        # Headless mode för CI
-        HEADLESS: true
-        # URL kan komma från deployment event
-        TARGET_URL: ${{ github.event.client_payload.deployed_url || 'https://www.saucedemo.com' }}
-        
-    - name: Manual artifact upload on failure
-      if: failure()
-      run: |
-        echo "📁 Collecting test artifacts..."
-        mkdir -p artifacts
-        if [ -d "screenshots" ]; then
-          cp -r screenshots artifacts/ || echo "No screenshots found"
+        echo "📦 Checking package.json..."
+        if [ -f package.json ]; then
+          echo "✅ package.json found"
+          cat package.json
+        else
+          echo "❌ package.json not found!"
+          exit 1
         fi
-        if [ -d "test-results" ]; then
-          cp -r test-results artifacts/ || echo "No test results found"
-        fi
-        echo "🔍 Available artifacts:"
-        ls -la artifacts/ || echo "No artifacts collected"
-        echo "Note: Manual artifact collection completed (automatic upload disabled due to org policy)"
+        
+    - name: Node.js Check
+      run: |
+        echo "🔧 Checking Node.js..."
+        which node || echo "Node not found"
+        node --version || echo "Node version failed"
+        which npm || echo "NPM not found"
+        npm --version || echo "NPM version failed"
+        
+    - name: Simple NPM Install Test
+      run: |
+        echo "📦 Testing npm ci..."
+        npm ci || echo "NPM CI failed"
+        echo "✅ Dependencies check:"
+        ls -la node_modules/ | head -10
         
   notification:
-    needs: test
+    needs: debug_test
     runs-on: ubuntu-latest
     if: always()
     
     steps:
-    - name: Test Results Summary
+    - name: Debug Results Summary
       run: |
-        if [ "${{ needs.test.result }}" == "success" ]; then
-          echo "✅ Alla Selenium-tester lyckades!"
-          echo "Saucedemo.com fungerar som förväntat."
+        if [ "${{ needs.debug_test.result }}" == "success" ]; then
+          echo "✅ Debug-testerna lyckades!"
+          echo "Environment och setup fungerar."
         else
-          echo "❌ Selenium-tester misslyckades!"
-          echo "Det kan finnas problem med saucedemo.com eller våra tester."
+          echo "❌ Debug-testerna misslyckades!"
+          echo "Behöver analysera vilken del som failar."
         fi
